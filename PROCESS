@@ -1,0 +1,186 @@
+DOCKER PROJECT:
+
+
+yum install docker -y
+systemctl start docker
+systemctl status docker
+
+FROM ubuntu
+RUN apt-get update -y
+RUN apt-get install apache2 -y
+COPY index.html /var/www/html/
+CMD ["/usr/sbin/apachectl", "-D", "FOREGROUND"]
+
+
+
+DOCKER FILE	: To create image by automation.
+DOCKER COMPOSE	: To create multiple containers on single server.
+DOCKER SWARM	: To create single containers on Multiple server.
+DOCKER STACK	: Docker swarm + Docker compose
+
+1. CREATE 3 SERVERS T2.MEDIUM AND INSTALL DOCKER ON ALL OF THEM & CREATE CLUSTER OF IT
+
+yum install docker -y
+systemctl start docker
+systemctl status docker
+docker swarm init 
+docker node ls
+
+
+2. INSTALLING JENKINS (MASTER)
+
+#STEP-1: INSTALLING GIT JAVA-1.8.0 MAVEN 
+yum install git java-1.8.0-openjdk maven -y
+
+#STEP-2: GETTING THE REPO (jenkins.io --> download -- > redhat)
+sudo wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
+sudo rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
+
+#STEP-3: DOWNLOAD JAVA11 AND JENKINS
+amazon-linux-extras install java-openjdk11 -y
+yum install jenkins -y
+update-alternatives --config java
+
+#STEP-4: RESTARTING JENKINS (when we download service it will on stopped state)
+systemctl start jenkins.service
+systemctl status jenkins.service
+
+TRIVY INSTALLATION:
+wget https://github.com/aquasecurity/trivy/releases/download/v0.18.3/trivy_0.18.3_Linux-64bit.tar.gz
+tar zxvf trivy_0.18.3_Linux-64bit.tar.gz
+sudo mv trivy /usr/local/bin/
+vim .bashrc
+export PATH=$PATH:/usr/local/bin/
+source .bashrc 
+
+
+3. CREATE CUSTOM IMAGES AND PUSH TO DOCKERHUB WITH TAGS
+
+DOCKER FILE:
+FROM ubuntu
+RUN apt-get update -y
+RUN apt-get install apache2 -y
+COPY index.html /var/www/html/
+CMD ["/usr/sbin/apachectl", "-D", "FOREGROUND"]
+
+
+INDEX.HTML:
+
+
+PIPELINE:
+
+pipeline {
+    agent any
+    
+    stages {
+        stage('checkout') {
+            steps {
+                git 'https://github.com/pradeepV2/dockermsproject.git'
+            }
+        }
+        stage('build') {
+            steps {
+                sh 'docker build -t $image .'
+            }
+        }
+        stage('tag') {
+            steps {
+                sh 'docker tag $image $repo'
+            }
+        }
+        stage('trivy') {
+            steps {
+                  sh 'trivy fs . > trivyfs.txt'
+            }
+        }
+        stage('push') {
+            steps {
+                sh 'docker login -u pradeepV2 -p $password'
+                sh 'docker push $repo'
+            }
+        }
+        stage('deploy') {
+            steps {
+                sh 'docker stack deploy -c docker-compose.yml paytm'
+            }
+        }
+    }
+}
+
+
+4. GIVE PERMISSIONS
+
+chmod 777 /var/run/docker.sock
+systemctl daemon-reload
+systemctl restart docker.service
+
+
+5. WRITE COMPOSE FILE AND PUSH TO GITHUB
+
+version: '3'
+services:
+  devops:
+    image: pradeepV2/devopsreponit:latest
+    ports:
+      - "80:80"
+    volumes:
+      - "devopsvol"
+    deploy:
+      replicas: 3
+
+  aws:
+    image: pradeepV2/awsreponit:latest
+    ports:
+      - "81:80"
+    volumes:
+      - "awsvol"
+    deploy:
+      replicas: 3
+
+  datascience:
+    image: pradeepV2/datasciencereponit:latest
+    ports:
+      - "82:80"
+    volumes:
+      - "datasciencevol"
+    deploy:
+      replicas: 3
+
+  azure:
+    image: pradeepV2/azurereponit:latest
+    ports:
+      - "83:80"
+    volumes:
+      - "azurevol"
+    deploy:
+      replicas: 3
+
+DOCKER STACK:
+Docker stack is used to create multiple services on multiple hosts. i.e it will create multiple containers on multile servers with the help of compose file.
+To use the docker stack we have initialized docker swarm, if we are not using docker swarm, docker stack will not work.
+once we remove the stack automatically all the containers will gets deleted.
+We can share the containers from manager to worker according to the replicas
+Ex: Lets assume if we have 2 servers which is manager and worker, if we deployed a stack with 4 replicas. 2 are present in manager and 2 are present in worker.
+Here manager will divide the work based on the load on a server
+
+COMMAND:
+TO DEPLOY : docker stack deploy --compose-file docker-compose.yml stack_name
+TO LIST : docker stack ls
+TO GET CONTAINERS OF A STACK : docker stack ps stack_name
+TO GET SERVICES OF A STACK: docker stack services stack_name
+TO DELETE A STACK: docker stack rm stack_name
+
+
+PORTAINER:
+it is a container organizer, designed to make tasks easier, whether they are clustered or not. 
+abel to connect multiple clusters, access the containers, migrate stacks between clusters
+it is not a testing environment mainly used for production routines in large companies.
+Portainer consists of two elements, the Portainer Server and the Portainer Agent. 
+Both elements run as lightweight Docker containers on a Docker engine
+
+SETUP:
+Must have swarm mode and all ports enable with docker engine
+curl -L https://downloads.portainer.io/ce2-16/portainer-agent-stack.yml -o portainer-agent-stack.yml
+docker stack deploy -c portainer-agent-stack.yml portainer
+ docker ps
+public-ip of swamr master:9000
